@@ -1,0 +1,53 @@
+# Agent Configuration
+agent:
+  name: "sentiment_agent"
+  version: "1.0.0"
+  
+# Hugging Face Configuration (Free API)
+huggingface:
+  # Optional: Get free API token from https://huggingface.co/settings/tokens
+  # If not provided, will use local transformer models (completely free, better quality)
+  api_token: "${HUGGINGFACE_API_TOKEN}"
+  # Model for text generation (free inference API) - only used for aspect/comparison/summary
+  model: "mistralai/Mistral-7B-Instruct-v0.2"
+  # Alternative free models: "meta-llama/Llama-2-7b-chat-hf", "google/flan-t5-large"
+  temperature: 0.7
+  max_tokens: 2000
+  use_api: true  # Set to false to use local models only (requires more RAM)
+  use_local_models: true  # Use local transformer models for sentiment/emotion (recommended)
+
+# Vector Database Configuration
+vector_db:
+  type: "chromadb"
+  persist_directory: "./data/chroma_db"
+  collection_name: "sentiment_memory"
+  similarity_threshold: 0.75
+
+# Embedding Configuration (Local - Completely Free)
+embeddings:
+  # Using sentence-transformers (runs locally, no API needed)
+  model: "all-MiniLM-L6-v2"  # Fast and efficient, 384 dimensions
+  # Alternatives: "all-mpnet-base-v2" (768 dims, better quality), "paraphrase-MiniLM-L6-v2"
+  dimension: 384
+
+# API Configuration
+api:
+  host: "0.0.0.0"
+  port: 8000
+  log_level: "INFO"
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  file: "./logs/agent.log"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  max_bytes: 10485760  # 10MB
+  backup_count: 5
+
+# MongoDB Configuration
+mongodb:
+  enabled: true  # Set to false to disable MongoDB logging
+  connection_string: "${MONGODB_URI}"  # Default: mongodb://localhost:27017/
+  database: "sentiment_agent"
+  collection: "analysis_logs"
+
