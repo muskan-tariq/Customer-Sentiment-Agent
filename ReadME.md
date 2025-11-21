@@ -3,9 +3,7 @@
 ## Prerequisites
 
 1. Python 3.8 or higher
-2. (Optional) Hugging Face API token for faster inference (free tier available)
-   - Get one at: https://huggingface.co/settings/tokens
-   - If not provided, embeddings will work locally (completely free)
+
 
 ## Installation Steps
 
@@ -16,26 +14,6 @@ pip install -r requirements.txt
 ```
 
 ### 2. Set Up Environment (Optional)
-
-For faster text generation, create a `.env` file with your Hugging Face token:
-
-```
-HUGGINGFACE_API_TOKEN=your_huggingface_token_here
-```
-
-Or set it as an environment variable:
-
-**Windows (PowerShell):**
-```powershell
-$env:HUGGINGFACE_API_TOKEN="your_huggingface_token_here"
-```
-
-**Linux/Mac:**
-```bash
-export HUGGINGFACE_API_TOKEN="your_huggingface_token_here"
-```
-
-**Note:** If you don't provide a token, the agent will use local models (slower but completely free). Embeddings always work locally without any API key.
 
 ### 3. Run the Server
 
@@ -82,24 +60,4 @@ response = requests.post(
 print(response.json())
 ```
 
-## Troubleshooting
-
-### Hugging Face API Token Error
-- The agent works without an API token (uses local models)
-- For faster inference, get a free token from https://huggingface.co/settings/tokens
-- Embeddings work locally without any API key
-
-### Port Already in Use
-- Change the port in `config.yaml` (default: 8000)
-- Or stop the process using port 8000
-
-### Import Errors
-- Ensure all dependencies are installed: `pip install -r requirements.txt`
-- Check Python version: `python --version` (should be 3.8+)
-
-## Next Steps
-
-- Read the full [README.md](README.md) for detailed documentation
-- Customize `config.yaml` for your needs
-- Check logs in `./logs/agent.log` for debugging
 
