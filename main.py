@@ -44,7 +44,10 @@ def main():
     # Get API configuration
     api_config = config.get("api", {})
     host = api_config.get("host", "0.0.0.0")
-    port = api_config.get("port", 8000)
+    
+    # Get port from environment (for Replit/cloud platforms) or config
+    import os
+    port = int(os.getenv("PORT", api_config.get("port", 8000)))
     
     logger.info(f"Starting server on {host}:{port}")
     

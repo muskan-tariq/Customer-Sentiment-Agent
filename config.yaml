@@ -46,7 +46,7 @@ logging:
 
 # MongoDB Configuration
 mongodb:
-  enabled: true  # Set to false to disable MongoDB logging
+  enabled: false  # Set to true to enable MongoDB logging (requires MongoDB instance)
   connection_string: "${MONGODB_URI}"  # Default: mongodb://localhost:27017/
   database: "sentiment_agent"
   collection: "analysis_logs"
