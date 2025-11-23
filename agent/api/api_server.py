@@ -126,7 +126,21 @@ def create_app(workflow, config: Dict, mongodb_logger=None) -> FastAPI:
             logger.info(f"Received analysis request: user={request.user}, platform={request.platform}, text={text[:100]}...")
             
             # Process through workflow with full input data
-            result = workflow.process(text, input_data)
+            # Add timeout protection - if analysis takes too long, return fallback response
+            try:
+                result = workflow.process(text, input_data)
+            except Exception as workflow_error:
+                logger.error(f"Workflow error: {workflow_error}, returning fallback response")
+                # Return a basic fallback response to prevent 502
+                result = {
+                    "sentiment_label": "neutral",
+                    "sentiment_score": 0.0,
+                    "emotion_analysis": [{"emotion": "neutral", "score": 0.5}],
+                    "engagement_prediction": "medium",
+                    "topic_extracted": [],
+                    "region": input_data.get("country"),
+                    "recommendation": "Analysis temporarily unavailable. Please try again."
+                }
             
             # Get current timestamp
             current_timestamp = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")

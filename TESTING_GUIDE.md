@@ -1,396 +1,169 @@
-# Testing Guide - Sentiment Analysis Agent
+# Testing Your Deployed Service - Quick Guide
 
-## Quick Answer: Can it handle supervisor agent requests?
+## 🎯 Your Service URL
 
-**YES!** ✅ The agent is fully capable of receiving requests from supervisor agents and responding with JSON. It uses standard HTTP REST API that any agent can call.
+**Live Service**: https://customer-sentiment-agent-g5gd.onrender.com  
+**API Docs**: https://customer-sentiment-agent-g5gd.onrender.com/docs  
+**Health**: https://customer-sentiment-agent-g5gd.onrender.com/health
 
-### Request Format (Supervisor → Sentiment Agent)
+---
 
-```http
-POST http://localhost:8000/analyze
-Content-Type: application/json
+## ✅ Quick Test (FastAPI Docs)
 
-{
-  "text": "Your text to analyze here"
-}
-```
+### Step 1: Open Docs
+Go to: **https://customer-sentiment-agent-g5gd.onrender.com/docs**
 
-### Response Format (Sentiment Agent → Supervisor)
+### Step 2: Test `/analyze` Endpoint
+1. Click **`POST /analyze`**
+2. Click **"Try it out"**
+3. Paste this in **Request body**:
+   ```json
+   {
+     "user": "test_user",
+     "platform": "twitter",
+     "text": "I love this product! It works perfectly.",
+     "country": "Germany"
+   }
+   ```
+4. Click **"Execute"**
+5. **Wait 10-30 seconds** (should be faster now with fallbacks!)
+6. Check **Response** section
+
+---
+
+## ✅ Expected Response
+
+Your response should have **ALL** these fields:
 
 ```json
 {
-  "status": "success",
-  "agent": "sentiment_agent",
-  "input": "Your text to analyze here",
-  "result": {
-    "sentiment": {...},
-    "emotion": {...},
-    "aspects": {...},
-    "comparison": {...},
-    "summary": {...},
-    "confidence": 0.85
-  },
-  "memory_used": false
+  "sentiment_label": "satisfaction",
+  "sentiment_score": 0.95,
+  "emotion_analysis": [
+    {
+      "emotion": "joy",
+      "score": 0.85
+    }
+  ],
+  "engagement_prediction": "high",
+  "topic_extracted": ["product", "satisfaction"],
+  "region": "Germany",
+  "recommendation": "...",
+  "database_status": "retrieved_from_mongo",
+  "langgraph_status": "Active",
+  "timestamp": "2025-11-23T..."
 }
 ```
 
 ---
 
-## Step-by-Step Testing Guide
+## ✅ Validation Checklist
 
-### Prerequisites
+**Check for these fields:**
+- [ ] `sentiment_label` (string)
+- [ ] `sentiment_score` (number, -1.0 to 1.0)
+- [ ] `emotion_analysis` (array of objects with `emotion` and `score`)
+- [ ] `engagement_prediction` (string: "high", "medium", or "low")
+- [ ] `topic_extracted` (array of strings)
+- [ ] `region` (string or null - should match your input `country`)
+- [ ] `recommendation` (string)
+- [ ] `database_status` (string)
+- [ ] `langgraph_status` (string)
+- [ ] `timestamp` (string, ISO format)
 
-1. Python 3.8+ installed
-2. All dependencies installed: `pip install -r requirements.txt`
-3. (Optional) Hugging Face API token for faster inference
+**Should NOT have:**
+- [ ] `reasoning` (old field - should be removed)
+- [ ] `primary_emotion` (old field - should be removed)
+- [ ] `aspects` (old field - should be removed)
+- [ ] `summary` (old field - should be removed)
 
 ---
 
-## Method 1: Quick Test (Recommended)
+## 🔧 If You Get 502 Error
 
-### Step 1: Start the Agent Server
+The fixes are applied, but you need to:
 
-Open a terminal/command prompt and run:
+1. **Push changes to GitHub** (if not done)
+2. **Wait for Render to redeploy** (check Render dashboard)
+3. **Update Start Command** in Render (if not updated):
+   ```
+   gunicorn wsgi:app --bind 0.0.0.0:$PORT --worker-class uvicorn.workers.UvicornWorker --timeout 300 --graceful-timeout 300 --workers 1 --keep-alive 5
+   ```
+4. **Test again** after deployment completes
 
-```bash
-python main.py
-```
+---
 
-You should see output like:
-```
-INFO - Starting Sentiment Analysis Agent...
-INFO - Initializing vector store...
-INFO - Loading embedding model: all-MiniLM-L6-v2
-INFO - Embedding model loaded successfully
-INFO - Initializing analysis engine...
-INFO - Initializing LangGraph workflow...
-INFO - Creating FastAPI application...
-INFO - Starting server on 0.0.0.0:8000
-```
+## 📝 Test Different Scenarios
 
-**✅ Server is running when you see:** `Uvicorn running on http://0.0.0.0:8000`
-
-### Step 2: Test Health Endpoint
-
-Open a **NEW terminal/command prompt** (keep the server running) and run:
-
-**Windows (PowerShell):**
-```powershell
-curl http://localhost:8000/health
-```
-
-**Windows (CMD):**
-```cmd
-curl http://localhost:8000/health
-```
-
-**Linux/Mac:**
-```bash
-curl http://localhost:8000/health
-```
-
-**Expected Response:**
+### Positive Sentiment:
 ```json
 {
-  "status": "healthy",
-  "agent": "sentiment_agent",
-  "version": "1.0.0",
-  "service": "operational"
+  "text": "Amazing product! Highly recommend!",
+  "country": "USA"
 }
 ```
 
-**✅ If you see this, the agent is working!**
-
-### Step 3: Test Analyze Endpoint
-
-**Windows (PowerShell):**
-```powershell
-curl -X POST http://localhost:8000/analyze -H "Content-Type: application/json" -d '{\"text\": \"I love this product!\"}'
-```
-
-**Linux/Mac:**
-```bash
-curl -X POST http://localhost:8000/analyze \
-  -H "Content-Type: application/json" \
-  -d '{"text": "I love this product!"}'
-```
-
-**Expected Response:** JSON with sentiment analysis results
-
-**✅ If you get JSON response, the agent is fully functional!**
-
----
-
-## Method 2: Automated Test Script
-
-### Step 1: Start the Agent Server
-
-```bash
-python main.py
-```
-
-### Step 2: Run Test Script
-
-Open a **NEW terminal** and run:
-
-```bash
-python test_agent.py
-```
-
-This will automatically test:
-- ✅ Health check endpoint
-- ✅ Analyze endpoint
-- ✅ Supervisor request format
-- ✅ Memory system
-
-**Expected Output:**
-```
-============================================================
-SENTIMENT ANALYSIS AGENT - TESTING SUITE
-============================================================
-
-Testing agent at: http://localhost:8000
-Make sure the server is running: python main.py
-
-============================================================
-TEST 1: Health Check
-============================================================
-Status Code: 200
-Response: {
-  "status": "healthy",
-  "agent": "sentiment_agent",
-  ...
-}
-✅ Health check PASSED
-
-============================================================
-TEST 2: Analyze Endpoint
-============================================================
-...
-✅ Analyze endpoint PASSED
-
-============================================================
-TEST SUMMARY
-============================================================
-Health Check: ✅ PASSED
-Analyze Endpoint: ✅ PASSED
-Supervisor Request: ✅ PASSED
-Memory System: ✅ PASSED
-
-Total: 4/4 tests passed
-
-🎉 All tests passed! Agent is working correctly.
-```
-
----
-
-## Method 3: Test with Supervisor Agent Example
-
-### Step 1: Start the Agent Server
-
-```bash
-python main.py
-```
-
-### Step 2: Run Supervisor Example
-
-Open a **NEW terminal** and run:
-
-```bash
-python supervisor_example.py
-```
-
-This demonstrates how a supervisor agent would call your sentiment agent.
-
-**Expected Output:**
-```
-============================================================
-SUPERVISOR AGENT EXAMPLE
-============================================================
-
-Checking sentiment agent health...
-✅ Sentiment agent is healthy
-
-Example 1: Positive Feedback
-------------------------------------------------------------
-Supervisor: Processing feedback...
-Text: I love this product! It's amazing and works perfectly...
-Supervisor: Received analysis from sentiment agent:
-  - Sentiment: positive
-  - Emotion: joy
-  - Memory Used: False
-...
-```
-
----
-
-## Method 4: Manual Testing with Python
-
-### Step 1: Start the Agent Server
-
-```bash
-python main.py
-```
-
-### Step 2: Run Python Test Script
-
-Create a file `manual_test.py`:
-
-```python
-import requests
-
-# Test health
-response = requests.get("http://localhost:8000/health")
-print("Health:", response.json())
-
-# Test analyze
-response = requests.post(
-    "http://localhost:8000/analyze",
-    json={"text": "I love this product!"}
-)
-print("Analysis:", response.json())
-```
-
-Run it:
-```bash
-python manual_test.py
-```
-
----
-
-## Method 5: Test with Browser/Postman
-
-### Step 1: Start the Agent Server
-
-```bash
-python main.py
-```
-
-### Step 2: Test Health Endpoint
-
-Open browser and go to:
-```
-http://localhost:8000/health
-```
-
-You should see JSON response.
-
-### Step 3: Test Analyze Endpoint (Use Postman or similar)
-
-**URL:** `POST http://localhost:8000/analyze`
-
-**Headers:**
-```
-Content-Type: application/json
-```
-
-**Body (JSON):**
+### Negative Sentiment:
 ```json
 {
-  "text": "I love this product! It's amazing."
+  "text": "Terrible experience. Very disappointed.",
+  "country": "UK"
 }
 ```
 
-**Expected:** JSON response with analysis results
-
----
-
-## Troubleshooting
-
-### Problem: "Connection refused" or "Cannot connect"
-
-**Solution:**
-- Make sure the server is running (`python main.py`)
-- Check if port 8000 is already in use
-- Try changing port in `config.yaml`
-
-### Problem: "Module not found" errors
-
-**Solution:**
-```bash
-pip install -r requirements.txt
-```
-
-### Problem: Slow responses
-
-**Solution:**
-- First request may be slow (loading models)
-- Get free Hugging Face token: https://huggingface.co/settings/tokens
-- Set it: `export HUGGINGFACE_API_TOKEN="your_token"`
-
-### Problem: API errors
-
-**Solution:**
-- Check logs in `./logs/agent.log`
-- Verify Hugging Face API token if using API mode
-- Agent works without token (uses fallback)
-
----
-
-## Verification Checklist
-
-- [ ] Server starts without errors
-- [ ] Health endpoint returns `{"status": "healthy"}`
-- [ ] Analyze endpoint accepts POST requests
-- [ ] Analyze endpoint returns JSON with `status: "success"`
-- [ ] Response contains `sentiment`, `emotion`, `aspects`, `comparison`, `summary`
-- [ ] Memory system works (second similar request uses memory)
-- [ ] Supervisor agent can call the endpoint successfully
-
----
-
-## Integration with Supervisor Agent
-
-Your supervisor agent can call this agent like this:
-
-```python
-import requests
-
-def call_sentiment_agent(text: str):
-    response = requests.post(
-        "http://localhost:8000/analyze",
-        json={"text": text},
-        timeout=60
-    )
-    return response.json()
-
-# Usage
-result = call_sentiment_agent("Customer feedback text here")
-print(result["result"]["sentiment"])
-```
-
----
-
-## Next Steps
-
-1. ✅ Verify agent is working using Method 1 or 2
-2. ✅ Test with supervisor agent using `supervisor_example.py`
-3. ✅ Integrate with your supervisor agent system
-4. ✅ Monitor logs in `./logs/agent.log`
-
----
-
-## Quick Reference
-
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/health` | GET | Check if agent is running |
-| `/analyze` | POST | Analyze text for sentiment |
-| `/` | GET | API information |
-
-**Request Format:**
-```json
-{"text": "Your text here"}
-```
-
-**Response Format:**
+### Mixed Sentiment:
 ```json
 {
-  "status": "success",
-  "agent": "sentiment_agent",
-  "input": "...",
-  "result": {...},
-  "memory_used": false
+  "text": "Good product but service needs improvement.",
+  "country": "Canada"
 }
 ```
 
+---
+
+## 🎉 Success Indicators
+
+✅ **Response received** within 30 seconds  
+✅ **All required fields** present  
+✅ **No old fields** in response  
+✅ **`region` matches** input `country`  
+✅ **Valid JSON** format  
+
+---
+
+## 📤 Share with Supervisor Group
+
+After successful testing:
+
+```
+Agent URL: https://customer-sentiment-agent-g5gd.onrender.com
+API Docs: https://customer-sentiment-agent-g5gd.onrender.com/docs
+Health: GET https://customer-sentiment-agent-g5gd.onrender.com/health
+Analyze: POST https://customer-sentiment-agent-g5gd.onrender.com/analyze
+
+Request Format:
+{
+  "user": "user_id",
+  "platform": "twitter",
+  "text": "Your text here",
+  "country": "Country"
+}
+
+Response Format:
+{
+  "sentiment_label": "...",
+  "sentiment_score": 0.95,
+  "emotion_analysis": [...],
+  "engagement_prediction": "high",
+  "topic_extracted": [...],
+  "region": "Country",
+  "recommendation": "...",
+  "database_status": "retrieved_from_mongo",
+  "langgraph_status": "Active",
+  "timestamp": "..."
+}
+```
+
+---
+
+**Use the docs interface - it's the easiest way to test!** 🚀

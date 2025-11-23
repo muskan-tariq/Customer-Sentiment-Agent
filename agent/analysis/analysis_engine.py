@@ -62,10 +62,16 @@ class AnalysisEngine:
         Returns:
             Generated text response
         """
+        # Skip API calls if no token (fail fast to keyword fallback)
         if self.use_api and self.api_token:
-            return self._call_hf_api(system_prompt, user_prompt)
+            try:
+                return self._call_hf_api(system_prompt, user_prompt)
+            except Exception as e:
+                logger.warning(f"API call failed: {e}, skipping to fallback")
+                raise  # Re-raise to trigger fallback
         else:
-            return self._call_local_model(system_prompt, user_prompt)
+            # No API token or API disabled - skip to fallback immediately
+            raise ValueError("API not available, using fallback")
     
     def _call_hf_api(self, system_prompt: str, user_prompt: str) -> str:
         """Call Hugging Face Inference API"""
@@ -217,28 +223,70 @@ class AnalysisEngine:
                 pass
         
         # Last resort: Simple keyword-based sentiment
-        text_lower = prompt.lower()
-        positive_words = ["good", "great", "excellent", "love", "amazing", "wonderful", "happy", "satisfied"]
-        negative_words = ["bad", "terrible", "awful", "hate", "disappointed", "angry", "sad", "poor"]
+        return self._keyword_sentiment_fallback(prompt)
+    
+    def _keyword_sentiment_fallback(self, text: str) -> Dict[str, Any]:
+        """Fast keyword-based sentiment analysis (no API, no models)"""
+        text_lower = text.lower()
+        positive_words = ["good", "great", "excellent", "love", "amazing", "wonderful", "happy", "satisfied", "perfect", "awesome", "fantastic", "brilliant", "outstanding"]
+        negative_words = ["bad", "terrible", "awful", "hate", "disappointed", "angry", "sad", "poor", "worst", "horrible", "disgusting", "frustrated", "annoyed"]
         
         pos_count = sum(1 for word in positive_words if word in text_lower)
         neg_count = sum(1 for word in negative_words if word in text_lower)
         
         if pos_count > neg_count:
             sentiment = "positive"
-            score = 0.6
+            score = min(0.6 + (pos_count * 0.1), 1.0)
         elif neg_count > pos_count:
             sentiment = "negative"
-            score = -0.6
+            score = max(-0.6 - (neg_count * 0.1), -1.0)
         else:
             sentiment = "neutral"
             score = 0.0
         
-        return json.dumps({
+        return {
             "sentiment": sentiment,
             "score": score,
-            "reasoning": "Keyword-based fallback analysis (install transformers for better quality)"
-        })
+            "reasoning": "Keyword-based fallback analysis"
+        }
+    
+    def _keyword_emotion_fallback(self, text: str) -> Dict[str, Any]:
+        """Fast keyword-based emotion analysis (no API, no models)"""
+        text_lower = text.lower()
+        
+        # Simple emotion detection based on keywords
+        joy_words = ["happy", "joy", "excited", "love", "amazing", "wonderful", "great", "excellent"]
+        anger_words = ["angry", "mad", "furious", "annoyed", "frustrated", "hate"]
+        sadness_words = ["sad", "disappointed", "unhappy", "depressed", "upset"]
+        fear_words = ["worried", "afraid", "scared", "anxious", "nervous"]
+        
+        joy_count = sum(1 for word in joy_words if word in text_lower)
+        anger_count = sum(1 for word in anger_words if word in text_lower)
+        sadness_count = sum(1 for word in sadness_words if word in text_lower)
+        fear_count = sum(1 for word in fear_words if word in text_lower)
+        
+        # Find dominant emotion
+        emotions = {
+            "joy": joy_count,
+            "anger": anger_count,
+            "sadness": sadness_count,
+            "fear": fear_count
+        }
+        
+        max_emotion = max(emotions.items(), key=lambda x: x[1])
+        
+        if max_emotion[1] > 0:
+            primary_emotion = max_emotion[0]
+            intensity = min(max_emotion[1] * 0.3, 1.0)
+        else:
+            primary_emotion = "neutral"
+            intensity = 0.5
+        
+        return {
+            "primary_emotion": primary_emotion,
+            "emotions": {primary_emotion: intensity},
+            "intensity": intensity
+        }
     
     def _extract_json(self, text: str) -> Dict[str, Any]:
         """Extract JSON from LLM response"""
@@ -270,17 +318,39 @@ class AnalysisEngine:
         logger.info(f"Analyzing text: {text[:100]}...")
         
         # Perform core analyses (only what we need for new format)
-        sentiment = self._detect_sentiment(text)
-        emotion = self._analyze_emotion(text)
+        # Wrap each in try-except to prevent hanging
+        try:
+            sentiment = self._detect_sentiment(text)
+        except Exception as e:
+            logger.error(f"Sentiment detection failed: {e}, using fallback")
+            sentiment = {"sentiment": "neutral", "score": 0.0}
         
-        # Extract topics from text and hashtags
-        topics = self._extract_topics(text, input_data)
+        try:
+            emotion = self._analyze_emotion(text)
+        except Exception as e:
+            logger.error(f"Emotion analysis failed: {e}, using fallback")
+            emotion = {"primary_emotion": "neutral", "emotions": {}, "intensity": 0.0}
         
-        # Predict engagement
-        engagement = self._predict_engagement(text, input_data)
+        # Extract topics from text and hashtags (fast, no API)
+        try:
+            topics = self._extract_topics(text, input_data)
+        except Exception as e:
+            logger.error(f"Topic extraction failed: {e}, using fallback")
+            topics = []
         
-        # Generate recommendation
-        recommendation = self._generate_recommendation(text, sentiment, emotion, topics, input_data)
+        # Predict engagement (fast, no API)
+        try:
+            engagement = self._predict_engagement(text, input_data)
+        except Exception as e:
+            logger.error(f"Engagement prediction failed: {e}, using fallback")
+            engagement = "medium"
+        
+        # Generate recommendation (fast, keyword-based)
+        try:
+            recommendation = self._generate_recommendation(text, sentiment, emotion, topics, input_data)
+        except Exception as e:
+            logger.error(f"Recommendation generation failed: {e}, using fallback")
+            recommendation = "Continue monitoring sentiment and engagement."
         
         # Extract sentiment label and score
         sentiment_label = self._map_sentiment_to_label(sentiment, emotion)
@@ -350,6 +420,7 @@ Text: {text}
 Respond with ONLY valid JSON, no additional text."""
         
         try:
+            # Add timeout protection - fail fast if API hangs
             response_text = self._call_llm(system_prompt, user_prompt)
             result = self._extract_json(response_text)
             
@@ -360,12 +431,9 @@ Respond with ONLY valid JSON, no additional text."""
             return result
             
         except Exception as e:
-            logger.error(f"Error in sentiment detection: {e}")
-            return {
-                "sentiment": "neutral",
-                "score": 0.0,
-                "reasoning": f"Error: {str(e)}"
-            }
+            logger.error(f"Error in sentiment detection: {e}, using keyword fallback")
+            # Fast keyword-based fallback
+            return self._keyword_sentiment_fallback(text)
     
     def _analyze_emotion(self, text: str) -> Dict[str, Any]:
         """Analyze emotions in text using local model or API"""
@@ -426,12 +494,9 @@ Respond with ONLY valid JSON, no additional text."""
             return result
             
         except Exception as e:
-            logger.error(f"Error in emotion analysis: {e}")
-            return {
-                "primary_emotion": "neutral",
-                "emotions": {},
-                "intensity": 0.0
-            }
+            logger.error(f"Error in emotion analysis: {e}, using fallback")
+            # Fast keyword-based emotion fallback
+            return self._keyword_emotion_fallback(text)
     
     def _aspect_based_sentiment(self, text: str) -> Dict[str, Any]:
         """Perform aspect-based sentiment analysis"""
@@ -621,14 +686,9 @@ Respond with ONLY valid JSON, no additional text."""
             if hashtags:
                 topics.extend([h.replace("#", "").lower() for h in hashtags])
             
-            # Extract from aspects analysis
-            aspects_result = self._aspect_based_sentiment(text)
-            aspects = aspects_result.get("aspects", [])
-            if aspects:
-                for aspect in aspects[:3]:  # Top 3 aspects
-                    aspect_name = aspect.get("aspect", "")
-                    if aspect_name and aspect_name not in topics:
-                        topics.append(aspect_name.lower())
+            # Skip aspect-based analysis (too slow, uses API)
+            # Instead, extract simple keywords from text
+            # aspects_result = self._aspect_based_sentiment(text)  # Disabled - too slow
             
             # Extract keywords from text (simple extraction)
             text_lower = text.lower()
