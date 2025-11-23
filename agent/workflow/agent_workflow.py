@@ -88,16 +88,35 @@ class AgentWorkflow:
     def _generate_analysis_node(self, state: AgentState) -> AgentState:
         """Generate new analysis using analysis engine"""
         logger.info("Generating new analysis")
-        state.analysis_result = self.analysis_engine.analyze(state.query, state.input_data)
+        try:
+            state.analysis_result = self.analysis_engine.analyze(state.query, state.input_data)
+            logger.info(f"Analysis generated successfully. Result keys: {list(state.analysis_result.keys()) if isinstance(state.analysis_result, dict) else 'not a dict'}")
+        except Exception as e:
+            logger.error(f"Analysis generation failed: {e}", exc_info=True)
+            # Return a fallback result to prevent workflow failure
+            state.analysis_result = {
+                "sentiment_label": "neutral",
+                "sentiment_score": 0.0,
+                "emotion_analysis": [{"emotion": "neutral", "score": 0.5}],
+                "engagement_prediction": "medium",
+                "topic_extracted": [],
+                "region": state.input_data.get("country"),
+                "recommendation": "Analysis error occurred."
+            }
         return state
     
     def _store_memory_node(self, state: AgentState) -> AgentState:
         """Store new result in vector database"""
         logger.info("Storing new result in memory")
-        self.memory_store.store_memory(
-            query=state.query,
-            result=state.analysis_result
-        )
+        try:
+            self.memory_store.store_memory(
+                query=state.query,
+                result=state.analysis_result
+            )
+            logger.info("Memory storage completed")
+        except Exception as e:
+            logger.warning(f"Memory storage failed (non-critical): {e}, continuing...")
+            # Don't fail the workflow if memory storage fails
         return state
     
     def _format_output_node(self, state: AgentState) -> AgentState:

@@ -128,9 +128,11 @@ def create_app(workflow, config: Dict, mongodb_logger=None) -> FastAPI:
             # Process through workflow with full input data
             # Add timeout protection - if analysis takes too long, return fallback response
             try:
+                logger.info("Starting workflow processing...")
                 result = workflow.process(text, input_data)
+                logger.info(f"Workflow completed successfully. Result keys: {list(result.keys()) if isinstance(result, dict) else 'not a dict'}")
             except Exception as workflow_error:
-                logger.error(f"Workflow error: {workflow_error}, returning fallback response")
+                logger.error(f"Workflow error: {workflow_error}, returning fallback response", exc_info=True)
                 # Return a basic fallback response to prevent 502
                 result = {
                     "sentiment_label": "neutral",
@@ -163,7 +165,7 @@ def create_app(workflow, config: Dict, mongodb_logger=None) -> FastAPI:
                 "timestamp": input_data.get("timestamp") or current_timestamp
             }
             
-            # Log to MongoDB if enabled
+            # Log to MongoDB if enabled (non-blocking, don't wait if it fails)
             if mongodb_logger:
                 try:
                     mongodb_logger.log_analysis(input_data, cleaned_result)
@@ -171,7 +173,12 @@ def create_app(workflow, config: Dict, mongodb_logger=None) -> FastAPI:
                     logger.warning(f"Failed to log to MongoDB: {e}")
             
             logger.info(f"Analysis completed. Sentiment: {cleaned_result.get('sentiment_label')}, Region: {cleaned_result.get('region')}")
-            return JSONResponse(content=cleaned_result)
+            logger.info("Returning response to client...")
+            
+            # Return response immediately
+            response = JSONResponse(content=cleaned_result)
+            logger.info("Response prepared, sending to client")
+            return response
             
         except Exception as e:
             logger.error(f"Error processing analysis request: {e}")
