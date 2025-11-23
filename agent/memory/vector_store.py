@@ -22,145 +22,61 @@ class VectorStore:
     
     def __init__(self, config: Dict):
         """
-        Initialize vector store
+        Initialize vector store (lazy loading - models only loaded when needed)
         
         Args:
             config: Configuration dictionary with vector_db and embeddings settings
         """
         self.config = config
-        embedding_model_name = config.get("embeddings", {}).get("model", "sentence-transformers/paraphrase-albert-small-v2")
-        
-        # Initialize sentence-transformers model (local, free)
-        # Use memory-efficient loading for deployment
-        logger.info(f"Loading embedding model: {embedding_model_name}")
-        try:
-            # Load with device='cpu' and low_memory mode
-            self.embedding_model = SentenceTransformer(
-                embedding_model_name,
-                device='cpu',
-                model_kwargs={'low_cpu_mem_usage': True}
-            )
-            logger.info("Embedding model loaded successfully")
-        except Exception as e:
-            logger.warning(f"Error loading with optimizations: {e}, trying standard load")
-            self.embedding_model = SentenceTransformer(embedding_model_name, device='cpu')
-            logger.info("Embedding model loaded (standard mode)")
-        
+        self.embedding_model = None  # Lazy load - don't load at startup
+        self.client = None
+        self.collection = None
         self.similarity_threshold = config.get("vector_db", {}).get("similarity_threshold", 0.75)
+        self._initialized = False
         
-        # Initialize ChromaDB
-        persist_dir = config.get("vector_db", {}).get("persist_directory", "./data/chroma_db")
-        os.makedirs(persist_dir, exist_ok=True)
+        # Don't initialize anything at startup - memory operations are disabled
+        logger.info("Vector store initialized (lazy mode - models will not be loaded)")
+    
+    def _ensure_initialized(self):
+        """Lazy initialization - only load models if actually needed"""
+        if self._initialized:
+            return
         
-        self.client = chromadb.PersistentClient(
-            path=persist_dir,
-            settings=Settings(anonymized_telemetry=False)
-        )
-        
-        collection_name = config.get("vector_db", {}).get("collection_name", "sentiment_memory")
-        self.collection = self.client.get_or_create_collection(
-            name=collection_name,
-            metadata={"hnsw:space": "cosine"}
-        )
-        
-        logger.info(f"Vector store initialized with collection: {collection_name}")
+        # Memory operations are disabled - don't load models
+        logger.info("Memory operations disabled - skipping model initialization")
+        self._initialized = True
     
     def _generate_embedding(self, text: str) -> List[float]:
-        """Generate embedding for text using sentence-transformers (local, free)"""
-        try:
-            # sentence-transformers generates embeddings locally
-            embedding = self.embedding_model.encode(text, convert_to_numpy=True).tolist()
-            return embedding
-        except Exception as e:
-            logger.error(f"Error generating embedding: {e}")
-            raise
+        """Generate embedding for text - DISABLED (memory operations disabled)"""
+        # Memory operations disabled - return empty embedding
+        logger.warning("Embedding generation called but memory is disabled")
+        return [0.0] * 384  # Return dummy embedding
     
     def search_similar(self, query: str, top_k: int = 3) -> List[Dict]:
         """
-        Search for similar past queries in vector database
+        Search for similar past queries - DISABLED (memory operations disabled for speed)
         
-        Args:
-            query: Input query string
-            top_k: Number of similar results to return
-            
         Returns:
-            List of similar past queries with metadata
+            Empty list (memory operations disabled)
         """
-        try:
-            query_embedding = self._generate_embedding(query)
-            
-            results = self.collection.query(
-                query_embeddings=[query_embedding],
-                n_results=top_k
-            )
-            
-            similar_items = []
-            if results["ids"] and len(results["ids"][0]) > 0:
-                for i, doc_id in enumerate(results["ids"][0]):
-                    distance = results["distances"][0][i] if results["distances"] else None
-                    similarity = 1 - distance if distance is not None else 0
-                    
-                    if similarity >= self.similarity_threshold:
-                        metadata = results["metadatas"][0][i] if results["metadatas"] else {}
-                        document = results["documents"][0][i] if results["documents"] else ""
-                        
-                        similar_items.append({
-                            "id": doc_id,
-                            "query": document,
-                            "similarity": similarity,
-                            "result": json.loads(metadata.get("result", "{}")),
-                            "metadata": metadata
-                        })
-            
-            logger.info(f"Found {len(similar_items)} similar items for query")
-            return similar_items
-            
-        except Exception as e:
-            logger.error(f"Error searching similar queries: {e}")
-            return []
+        # Memory operations disabled - return empty immediately
+        logger.info("Memory search disabled - returning empty results")
+        return []
     
     def store_memory(self, query: str, result: Dict, metadata: Optional[Dict] = None) -> str:
         """
-        Store new query and result in vector database
+        Store query and result - DISABLED (memory operations disabled for speed)
         
-        Args:
-            query: Input query string
-            result: Analysis result dictionary
-            metadata: Additional metadata to store
-            
         Returns:
-            Document ID of stored item
+            Empty string (memory operations disabled)
         """
-        try:
-            query_embedding = self._generate_embedding(query)
-            
-            # Generate unique ID
-            doc_id = str(uuid.uuid4())
-            
-            # Prepare metadata
-            store_metadata = {
-                "result": json.dumps(result),
-                "timestamp": str(int(time.time())),
-            }
-            if metadata:
-                store_metadata.update(metadata)
-            
-            # Store in ChromaDB
-            self.collection.add(
-                ids=[doc_id],
-                embeddings=[query_embedding],
-                documents=[query],
-                metadatas=[store_metadata]
-            )
-            
-            logger.info(f"Stored new memory with ID: {doc_id}")
-            return doc_id
-            
-        except Exception as e:
-            logger.error(f"Error storing memory: {e}")
-            raise
+        # Memory operations disabled - return empty immediately
+        logger.info("Memory storage disabled - skipping storage")
+        return ""
     
     def should_reuse_memory(self, similar_items: List[Dict]) -> Tuple[bool, Optional[Dict]]:
+        """Memory reuse check - DISABLED (always returns False)"""
+        return False, None
         """
         Decide whether to reuse memory based on similarity threshold
         

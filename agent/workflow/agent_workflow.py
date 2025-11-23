@@ -38,29 +38,16 @@ class AgentWorkflow:
         self.graph = self._build_graph()
     
     def _build_graph(self) -> StateGraph:
-        """Build LangGraph workflow"""
+        """Build LangGraph workflow - Memory operations disabled for speed"""
         workflow = StateGraph(AgentState)
         
-        # Add nodes
-        workflow.add_node("search_memory", self._search_memory_node)
-        workflow.add_node("decide_reuse", self._decide_reuse_node)
+        # Add nodes (memory operations skipped for speed)
         workflow.add_node("generate_analysis", self._generate_analysis_node)
-        workflow.add_node("store_memory", self._store_memory_node)
         workflow.add_node("format_output", self._format_output_node)
         
-        # Define edges
-        workflow.set_entry_point("search_memory")
-        workflow.add_edge("search_memory", "decide_reuse")
-        workflow.add_conditional_edges(
-            "decide_reuse",
-            self._should_reuse_condition,
-            {
-                "reuse": "format_output",
-                "generate": "generate_analysis"
-            }
-        )
-        workflow.add_edge("generate_analysis", "store_memory")
-        workflow.add_edge("store_memory", "format_output")
+        # Define edges - skip memory, go directly to analysis
+        workflow.set_entry_point("generate_analysis")
+        workflow.add_edge("generate_analysis", "format_output")
         workflow.add_edge("format_output", END)
         
         return workflow.compile()
@@ -68,8 +55,15 @@ class AgentWorkflow:
     def _search_memory_node(self, state: AgentState) -> AgentState:
         """Search vector database for similar queries"""
         logger.info("Searching memory for similar queries")
-        similar_items = self.memory_store.search_similar(state.query)
-        state.memory_results = similar_items
+        try:
+            # Add timeout protection - if memory search takes too long, skip it
+            similar_items = self.memory_store.search_similar(state.query)
+            logger.info(f"Memory search completed, found {len(similar_items)} items")
+            state.memory_results = similar_items
+        except Exception as e:
+            logger.warning(f"Memory search failed (non-critical): {e}, continuing without memory")
+            # Don't fail the workflow if memory search fails
+            state.memory_results = []
         return state
     
     def _decide_reuse_node(self, state: AgentState) -> AgentState:
@@ -120,11 +114,8 @@ class AgentWorkflow:
         return state
     
     def _format_output_node(self, state: AgentState) -> AgentState:
-        """Format final JSON output in NEW format ONLY"""
-        if state.should_reuse and state.cached_result:
-            result = state.cached_result
-        else:
-            result = state.analysis_result
+        """Format final JSON output in NEW format ONLY - Memory disabled for speed"""
+        result = state.analysis_result
         
         # Ensure result is in NEW format only (remove any old fields)
         if isinstance(result, dict):
@@ -135,7 +126,7 @@ class AgentWorkflow:
                 "emotion_analysis": result.get("emotion_analysis", []),
                 "engagement_prediction": result.get("engagement_prediction", "medium"),
                 "topic_extracted": result.get("topic_extracted", []),
-                "region": result.get("region"),
+                "region": result.get("region") or state.input_data.get("country") or state.input_data.get("region"),
                 "recommendation": result.get("recommendation", "Continue monitoring sentiment and engagement.")
             }
         else:

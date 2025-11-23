@@ -43,13 +43,15 @@ class AnalysisEngine:
         # Initialize local models for sentiment/emotion analysis
         self.sentiment_pipeline = None
         self.emotion_pipeline = None
-        self.use_local_models = hf_config.get("use_local_models", True)
+        self.use_local_models = hf_config.get("use_local_models", False)  # Default to False for speed
         
-        if TRANSFORMERS_AVAILABLE and self.use_local_models:
+        # DISABLED: Never load local models - use API or fast keyword fallback only
+        # This prevents slow model loading and memory issues
+        if False and TRANSFORMERS_AVAILABLE and self.use_local_models:
             logger.info("Initializing local transformer models for better analysis quality...")
             self._init_local_models()
         else:
-            logger.info("Using API-based analysis (local models disabled or transformers not available)")
+            logger.info("Using API-based analysis only (local models disabled for speed)")
     
     def _call_llm(self, system_prompt: str, user_prompt: str) -> str:
         """
@@ -394,37 +396,13 @@ class AnalysisEngine:
         return response
     
     def _detect_sentiment(self, text: str) -> Dict[str, Any]:
-        """Detect overall sentiment using local model or API"""
-        # Try local transformer model first (best quality, no API needed)
-        if self.sentiment_pipeline:
-            try:
-                result = self.sentiment_pipeline(text)[0]
-                label = result["label"].lower()
-                score_raw = result["score"]
-                
-                # Convert to our format
-                if "positive" in label:
-                    sentiment = "positive"
-                    score = score_raw
-                elif "negative" in label:
-                    sentiment = "negative"
-                    score = -score_raw
-                else:
-                    sentiment = "neutral"
-                    score = 0.0
-                
-                return {
-                    "sentiment": sentiment,
-                    "score": score,
-                    "reasoning": f"Analyzed using local DistilBERT model (confidence: {score_raw:.2f})"
-                }
-            except Exception as e:
-                logger.warning(f"Local sentiment model failed: {e}, using keyword fallback")
-                return self._keyword_sentiment_fallback(text)
+        """Detect overall sentiment using API or keyword fallback (local models disabled for speed)"""
+        # SKIP local models completely - they're too slow and cause timeouts
+        # Use API or keyword fallback only for fast responses
         
-        # If no local model and no API token, use keyword fallback immediately
+        # If no API token, use keyword fallback immediately (fast, no hanging)
         if not (self.use_api and self.api_token):
-            logger.info("No local model or API token - using keyword-based sentiment")
+            logger.info("No API token - using keyword-based sentiment (fast)")
             return self._keyword_sentiment_fallback(text)
         
         # Fallback to API or LLM (only if API token is available)
@@ -455,47 +433,13 @@ Respond with ONLY valid JSON, no additional text."""
             return self._keyword_sentiment_fallback(text)
     
     def _analyze_emotion(self, text: str) -> Dict[str, Any]:
-        """Analyze emotions in text using local model or API"""
-        # Try local transformer model first (best quality, no API needed)
-        if self.emotion_pipeline:
-            try:
-                result = self.emotion_pipeline(text)[0]
-                primary_emotion = result["label"].lower()
-                confidence = result["score"]
-                
-                # Map to standard emotion names
-                emotion_map = {
-                    "joy": ["joy", "happiness", "happy"],
-                    "anger": ["anger", "angry", "annoyed"],
-                    "sadness": ["sadness", "sad", "disappointment"],
-                    "fear": ["fear", "anxiety", "worried"],
-                    "surprise": ["surprise", "surprised"],
-                    "disgust": ["disgust", "disgusted"],
-                    "neutral": ["neutral", "calm"]
-                }
-                
-                # Find matching emotion
-                mapped_emotion = "neutral"
-                for std_emotion, variants in emotion_map.items():
-                    if any(v in primary_emotion for v in variants):
-                        mapped_emotion = std_emotion
-                        break
-                
-                emotions = {mapped_emotion: confidence}
-                intensity = confidence
-                
-                return {
-                    "primary_emotion": mapped_emotion,
-                    "emotions": emotions,
-                    "intensity": intensity
-                }
-            except Exception as e:
-                logger.warning(f"Local emotion model failed: {e}, using keyword fallback")
-                return self._keyword_emotion_fallback(text)
+        """Analyze emotions in text using API or keyword fallback (local models disabled for speed)"""
+        # SKIP local models completely - they're too slow and cause timeouts
+        # Use API or keyword fallback only for fast responses
         
-        # If no local model and no API token, use keyword fallback immediately
+        # If no API token, use keyword fallback immediately (fast, no hanging)
         if not (self.use_api and self.api_token):
-            logger.info("No local model or API token - using keyword-based emotion")
+            logger.info("No API token - using keyword-based emotion (fast)")
             return self._keyword_emotion_fallback(text)
         
         # Fallback to API or LLM (only if API token is available)
