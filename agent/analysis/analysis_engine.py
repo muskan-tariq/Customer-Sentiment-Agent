@@ -98,8 +98,8 @@ class AnalysisEngine:
             
             # Use Hugging Face Router API (new endpoint)
             api_url = f"https://router.huggingface.co/models/{self.model_name}"
-            # Reduced timeout for faster failure, will fallback quickly
-            response = requests.post(api_url, headers=headers, json=payload, timeout=30)
+            # Aggressive timeout: fail after 10 seconds to prevent hanging
+            response = requests.post(api_url, headers=headers, json=payload, timeout=10)
             
             if response.status_code == 200:
                 result = response.json()
@@ -176,8 +176,8 @@ class AnalysisEngine:
             }
             
             api_url = f"https://router.huggingface.co/models/{public_model}"
-            # Reduced timeout for faster failure, will fallback quickly
-            response = requests.post(api_url, headers=headers, json=payload, timeout=30)
+            # Aggressive timeout: fail after 10 seconds to prevent hanging
+            response = requests.post(api_url, headers=headers, json=payload, timeout=10)
             
             if response.status_code == 200:
                 result = response.json()
@@ -317,19 +317,32 @@ class AnalysisEngine:
         input_data = input_data or {}
         logger.info(f"Analyzing text: {text[:100]}...")
         
+        # Skip API calls entirely if no token - use keyword fallback immediately
+        # This prevents hanging on slow/unavailable APIs
+        use_api = self.use_api and self.api_token
+        
         # Perform core analyses (only what we need for new format)
         # Wrap each in try-except to prevent hanging
-        try:
-            sentiment = self._detect_sentiment(text)
-        except Exception as e:
-            logger.error(f"Sentiment detection failed: {e}, using fallback")
-            sentiment = {"sentiment": "neutral", "score": 0.0}
+        # If no API token, skip directly to keyword fallback
+        if use_api:
+            try:
+                sentiment = self._detect_sentiment(text)
+            except Exception as e:
+                logger.warning(f"Sentiment detection failed: {e}, using keyword fallback")
+                sentiment = self._keyword_sentiment_fallback(text)
+        else:
+            logger.info("No API token - using keyword-based sentiment analysis")
+            sentiment = self._keyword_sentiment_fallback(text)
         
-        try:
-            emotion = self._analyze_emotion(text)
-        except Exception as e:
-            logger.error(f"Emotion analysis failed: {e}, using fallback")
-            emotion = {"primary_emotion": "neutral", "emotions": {}, "intensity": 0.0}
+        if use_api:
+            try:
+                emotion = self._analyze_emotion(text)
+            except Exception as e:
+                logger.warning(f"Emotion analysis failed: {e}, using keyword fallback")
+                emotion = self._keyword_emotion_fallback(text)
+        else:
+            logger.info("No API token - using keyword-based emotion analysis")
+            emotion = self._keyword_emotion_fallback(text)
         
         # Extract topics from text and hashtags (fast, no API)
         try:
@@ -406,9 +419,15 @@ class AnalysisEngine:
                     "reasoning": f"Analyzed using local DistilBERT model (confidence: {score_raw:.2f})"
                 }
             except Exception as e:
-                logger.warning(f"Local sentiment model failed: {e}, trying API")
+                logger.warning(f"Local sentiment model failed: {e}, using keyword fallback")
+                return self._keyword_sentiment_fallback(text)
         
-        # Fallback to API or LLM
+        # If no local model and no API token, use keyword fallback immediately
+        if not (self.use_api and self.api_token):
+            logger.info("No local model or API token - using keyword-based sentiment")
+            return self._keyword_sentiment_fallback(text)
+        
+        # Fallback to API or LLM (only if API token is available)
         system_prompt = "You are a sentiment analysis expert. Always respond with valid JSON only."
         user_prompt = f"""Analyze the sentiment of the following text and provide a JSON response with:
 - sentiment: "positive", "negative", or "neutral"
@@ -431,7 +450,7 @@ Respond with ONLY valid JSON, no additional text."""
             return result
             
         except Exception as e:
-            logger.error(f"Error in sentiment detection: {e}, using keyword fallback")
+            logger.warning(f"API sentiment detection failed: {e}, using keyword fallback")
             # Fast keyword-based fallback
             return self._keyword_sentiment_fallback(text)
     
@@ -471,9 +490,15 @@ Respond with ONLY valid JSON, no additional text."""
                     "intensity": intensity
                 }
             except Exception as e:
-                logger.warning(f"Local emotion model failed: {e}, trying API")
+                logger.warning(f"Local emotion model failed: {e}, using keyword fallback")
+                return self._keyword_emotion_fallback(text)
         
-        # Fallback to API or LLM
+        # If no local model and no API token, use keyword fallback immediately
+        if not (self.use_api and self.api_token):
+            logger.info("No local model or API token - using keyword-based emotion")
+            return self._keyword_emotion_fallback(text)
+        
+        # Fallback to API or LLM (only if API token is available)
         system_prompt = "You are an emotion analysis expert. Always respond with valid JSON only."
         user_prompt = f"""Analyze the emotions expressed in the following text. Provide a JSON response with:
 - primary_emotion: the dominant emotion (e.g., "joy", "anger", "sadness", "fear", "surprise", "disgust", "neutral")
@@ -494,7 +519,7 @@ Respond with ONLY valid JSON, no additional text."""
             return result
             
         except Exception as e:
-            logger.error(f"Error in emotion analysis: {e}, using fallback")
+            logger.warning(f"API emotion analysis failed: {e}, using keyword fallback")
             # Fast keyword-based emotion fallback
             return self._keyword_emotion_fallback(text)
     
