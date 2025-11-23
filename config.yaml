@@ -24,11 +24,10 @@ vector_db:
   similarity_threshold: 0.75
 
 # Embedding Configuration (Local - Completely Free)
-# Using lightweight model for deployment (low memory usage)
+# Using ultra-lightweight model for deployment (low memory usage)
 embeddings:
-  # Lightweight model for 512MB RAM limit (Render free tier)
-  model: "sentence-transformers/paraphrase-MiniLM-L3-v2"  # Super lightweight, 384 dimensions, <150MB RAM
-  # Alternatives for even lower memory: "sentence-transformers/paraphrase-albert-small-v2"
+  # Smallest model for 512MB RAM limit (Render free tier)
+  model: "sentence-transformers/paraphrase-albert-small-v2"  # Smallest available, 768 dimensions, <100MB RAM
   dimension: 384
 
 # API Configuration

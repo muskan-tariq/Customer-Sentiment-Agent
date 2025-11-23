@@ -23,11 +23,10 @@ vector_db:
   collection_name: "sentiment_memory"
   similarity_threshold: 0.75
 
-# Embedding Configuration (Lightweight for 512MB RAM)
+# Embedding Configuration (Ultra-lightweight for 512MB RAM)
 embeddings:
-  # Super lightweight model (<150MB RAM)
-  model: "sentence-transformers/paraphrase-MiniLM-L3-v2"
-  # Even smaller: "sentence-transformers/paraphrase-albert-small-v2" (<100MB)
+  # Smallest model available (<100MB RAM)
+  model: "sentence-transformers/paraphrase-albert-small-v2"
   dimension: 384
 
 # API Configuration

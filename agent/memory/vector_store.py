@@ -28,12 +28,23 @@ class VectorStore:
             config: Configuration dictionary with vector_db and embeddings settings
         """
         self.config = config
-        embedding_model_name = config.get("embeddings", {}).get("model", "sentence-transformers/paraphrase-MiniLM-L3-v2")
+        embedding_model_name = config.get("embeddings", {}).get("model", "sentence-transformers/paraphrase-albert-small-v2")
         
         # Initialize sentence-transformers model (local, free)
+        # Use memory-efficient loading for deployment
         logger.info(f"Loading embedding model: {embedding_model_name}")
-        self.embedding_model = SentenceTransformer(embedding_model_name)
-        logger.info("Embedding model loaded successfully")
+        try:
+            # Load with device='cpu' and low_memory mode
+            self.embedding_model = SentenceTransformer(
+                embedding_model_name,
+                device='cpu',
+                model_kwargs={'low_cpu_mem_usage': True}
+            )
+            logger.info("Embedding model loaded successfully")
+        except Exception as e:
+            logger.warning(f"Error loading with optimizations: {e}, trying standard load")
+            self.embedding_model = SentenceTransformer(embedding_model_name, device='cpu')
+            logger.info("Embedding model loaded (standard mode)")
         
         self.similarity_threshold = config.get("vector_db", {}).get("similarity_threshold", 0.75)
         
