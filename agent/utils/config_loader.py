@@ -11,16 +11,24 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def load_config(config_path: str = "config.yaml") -> Dict:
+def load_config(config_path: str = None) -> Dict:
     """
     Load configuration from YAML file
     
     Args:
-        config_path: Path to configuration file
+        config_path: Path to configuration file (default: config.yaml or config.deployment.yaml)
         
     Returns:
         Configuration dictionary
     """
+    # Check for deployment config first (for cloud platforms)
+    if config_path is None:
+        if os.path.exists("config.deployment.yaml"):
+            config_path = "config.deployment.yaml"
+            print("Using deployment configuration (optimized for cloud)")
+        else:
+            config_path = "config.yaml"
+    
     try:
         with open(config_path, "r") as f:
             config = yaml.safe_load(f)

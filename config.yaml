@@ -14,7 +14,7 @@ huggingface:
   temperature: 0.7
   max_tokens: 2000
   use_api: true  # Set to false to use local models only (requires more RAM)
-  use_local_models: true  # Use local transformer models for sentiment/emotion (recommended)
+  use_local_models: false  # Set to false for deployment (saves ~300MB RAM, uses API instead)
 
 # Vector Database Configuration
 vector_db:
@@ -24,10 +24,11 @@ vector_db:
   similarity_threshold: 0.75
 
 # Embedding Configuration (Local - Completely Free)
+# Using lightweight model for deployment (low memory usage)
 embeddings:
-  # Using sentence-transformers (runs locally, no API needed)
-  model: "all-MiniLM-L6-v2"  # Fast and efficient, 384 dimensions
-  # Alternatives: "all-mpnet-base-v2" (768 dims, better quality), "paraphrase-MiniLM-L6-v2"
+  # Lightweight model for 512MB RAM limit (Render free tier)
+  model: "sentence-transformers/paraphrase-MiniLM-L3-v2"  # Super lightweight, 384 dimensions, <150MB RAM
+  # Alternatives for even lower memory: "sentence-transformers/paraphrase-albert-small-v2"
   dimension: 384
 
 # API Configuration

@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: sentiment-agent
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn wsgi:app --bind 0.0.0.0:$PORT --worker-class uvicorn.workers.UvicornWorker --timeout 120
+    envVars:
+      - key: HUGGINGFACE_API_TOKEN
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+        optional: true
+

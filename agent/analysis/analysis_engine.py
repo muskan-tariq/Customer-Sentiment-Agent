@@ -90,8 +90,8 @@ class AnalysisEngine:
                 }
             }
             
-            # Use Hugging Face Inference API
-            api_url = f"https://api-inference.huggingface.co/models/{self.model_name}"
+            # Use Hugging Face Router API (new endpoint)
+            api_url = f"https://router.huggingface.co/models/{self.model_name}"
             response = requests.post(api_url, headers=headers, json=payload, timeout=60)
             
             if response.status_code == 200:
@@ -168,7 +168,7 @@ class AnalysisEngine:
                 }
             }
             
-            api_url = f"https://api-inference.huggingface.co/models/{public_model}"
+            api_url = f"https://router.huggingface.co/models/{public_model}"
             response = requests.post(api_url, headers=headers, json=payload, timeout=90)
             
             if response.status_code == 200:

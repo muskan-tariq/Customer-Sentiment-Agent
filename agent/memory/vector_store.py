@@ -28,7 +28,7 @@ class VectorStore:
             config: Configuration dictionary with vector_db and embeddings settings
         """
         self.config = config
-        embedding_model_name = config.get("embeddings", {}).get("model", "all-MiniLM-L6-v2")
+        embedding_model_name = config.get("embeddings", {}).get("model", "sentence-transformers/paraphrase-MiniLM-L3-v2")
         
         # Initialize sentence-transformers model (local, free)
         logger.info(f"Loading embedding model: {embedding_model_name}")

@@ -1,0 +1,53 @@
+# Deployment Configuration (Optimized for 512MB RAM)
+# Use this config for Render/Replit/Cloud deployment
+
+# Agent Configuration
+agent:
+  name: "sentiment_agent"
+  version: "1.0.0"
+  
+# Hugging Face Configuration (Free API)
+huggingface:
+  # Use API for all analysis (saves ~300MB RAM)
+  api_token: "${HUGGINGFACE_API_TOKEN}"  # Optional but recommended
+  model: "mistralai/Mistral-7B-Instruct-v0.2"
+  temperature: 0.7
+  max_tokens: 2000
+  use_api: true  # Always use API for deployment
+  use_local_models: false  # Disabled to save RAM (uses API instead)
+
+# Vector Database Configuration
+vector_db:
+  type: "chromadb"
+  persist_directory: "./data/chroma_db"
+  collection_name: "sentiment_memory"
+  similarity_threshold: 0.75
+
+# Embedding Configuration (Lightweight for 512MB RAM)
+embeddings:
+  # Super lightweight model (<150MB RAM)
+  model: "sentence-transformers/paraphrase-MiniLM-L3-v2"
+  # Even smaller: "sentence-transformers/paraphrase-albert-small-v2" (<100MB)
+  dimension: 384
+
+# API Configuration
+api:
+  host: "0.0.0.0"
+  port: 8000  # Will be overridden by PORT env var on cloud
+  log_level: "INFO"
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  file: "./logs/agent.log"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  max_bytes: 10485760  # 10MB
+  backup_count: 5
+
+# MongoDB Configuration (Disabled for deployment)
+mongodb:
+  enabled: false  # Disabled to save memory
+  connection_string: "${MONGODB_URI}"
+  database: "sentiment_agent"
+  collection: "analysis_logs"
+
