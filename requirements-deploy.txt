@@ -1,3 +1,6 @@
+# Deployment-optimized requirements (CPU-only, minimal dependencies)
+# Use this for Render/cloud deployment to save memory
+
 langgraph>=0.0.40
 chromadb>=0.4.22
 fastapi>=0.109.0
@@ -8,12 +11,13 @@ pyyaml>=6.0.1
 python-dotenv>=1.0.0
 numpy>=1.26.0
 tenacity>=8.2.3
-pytest>=7.4.0
 requests>=2.31.0
 sentence-transformers>=2.2.2
 huggingface_hub>=0.20.0
-transformers>=4.35.0
+# CPU-only PyTorch (no CUDA, saves ~2GB)
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch>=2.0.0
+# Transformers optional (only if use_local_models=true)
+transformers>=4.35.0
 pymongo>=4.6.0
 
