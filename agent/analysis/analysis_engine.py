@@ -92,7 +92,8 @@ class AnalysisEngine:
             
             # Use Hugging Face Router API (new endpoint)
             api_url = f"https://router.huggingface.co/models/{self.model_name}"
-            response = requests.post(api_url, headers=headers, json=payload, timeout=60)
+            # Reduced timeout for faster failure, will fallback quickly
+            response = requests.post(api_url, headers=headers, json=payload, timeout=30)
             
             if response.status_code == 200:
                 result = response.json()
@@ -169,7 +170,8 @@ class AnalysisEngine:
             }
             
             api_url = f"https://router.huggingface.co/models/{public_model}"
-            response = requests.post(api_url, headers=headers, json=payload, timeout=90)
+            # Reduced timeout for faster failure, will fallback quickly
+            response = requests.post(api_url, headers=headers, json=payload, timeout=30)
             
             if response.status_code == 200:
                 result = response.json()

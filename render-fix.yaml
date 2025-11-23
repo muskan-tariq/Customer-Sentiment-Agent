@@ -3,7 +3,7 @@ services:
     name: sentiment-agent
     env: python
     buildCommand: pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
-    startCommand: gunicorn wsgi:app --bind 0.0.0.0:$PORT --worker-class uvicorn.workers.UvicornWorker --timeout 300 --graceful-timeout 300 --workers 1 --keep-alive 5
+    startCommand: gunicorn wsgi:app --bind 0.0.0.0:$PORT --worker-class uvicorn.workers.UvicornWorker --timeout 180 --graceful-timeout 180 --workers 1
     envVars:
       - key: HUGGINGFACE_API_TOKEN
         sync: false
